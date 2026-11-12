@@ -5,10 +5,12 @@
 #
 # Este workflow implementa un pipeline CI/CD completo:
 #
-#   ci (lint + test) ──► deploy ──► GitHub Pages 🌐
+#   lint ──┐
+#           ├──► deploy ──► GitHub Pages 🌐
+#   test ──┘
 #
-# El job "ci" corre lint y tests en secuencia.
-# El job "deploy" solo arranca si "ci" pasa.
+# Los jobs "lint" y "test" corren en PARALELO.
+# El job "deploy" solo arranca si AMBOS pasan (needs: [lint, test]).
 # Si lint o test falla, el deploy no ocurre. Eso es un "gate" de calidad.
 # ============================================================
 
@@ -56,12 +58,12 @@ concurrency:
 jobs:
 
   # ──────────────────────────────────────────────────────────
-  # JOB 1: CI (lint + test)
-  # Verifica calidad del código y corre los tests.
-  # El job "deploy" espera a que este pase.
+  # JOB 1: LINT
+  # Verifica que el código sigue las reglas de estilo (ESLint).
+  # Corre en paralelo con el job "test".
   # ──────────────────────────────────────────────────────────
-  ci:
-    name: 🔍 Integrations and Validations
+  lint:
+    name: 🔍 Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -89,25 +91,47 @@ jobs:
       - name: 🔍 Ejecutar ESLint
         run: npm run lint
 
+  # ──────────────────────────────────────────────────────────
+  # JOB 2: TEST
+  # Corre los tests unitarios con Vitest.
+  # Corre en paralelo con el job "lint".
+  # ──────────────────────────────────────────────────────────
+  test:
+    name: 🧪 Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout del código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: 📦 Instalar dependencias
+        run: npm ci
+
       # Ejecutar Vitest en modo "run" (no watch)
       # Si algún test falla, el job falla y el deploy no ocurre
       - name: 🧪 Ejecutar tests
         run: npm test
 
   # ──────────────────────────────────────────────────────────
-  # JOB 2: DEPLOY
+  # JOB 3: DEPLOY
   # Compila la app y la publica en GitHub Pages.
   #
-  # 🔑 "needs: [ci]" es la clave:
-  # Este job solo empieza cuando ci termina con éxito.
-  # Si lint o test falla, este job se cancela automáticamente.
+  # 🔑 "needs: [lint, test]" es la clave:
+  # Este job solo empieza cuando lint Y test terminan con éxito.
+  # Si cualquiera falla, este job se cancela automáticamente.
   # ──────────────────────────────────────────────────────────
   deploy:
     name: 🚀 Deploy a GitHub Pages
     runs-on: ubuntu-latest
 
-    # Dependencias: esperar a que ci pase
-    needs: [ci]
+    # Dependencias: esperar a que lint y test pasen
+    needs: [lint, test]
 
     # Environment conecta este job con el entorno "github-pages" de GitHub.
     # Esto aparece en el tab "Environments" del repo y genera la URL del sitio.
