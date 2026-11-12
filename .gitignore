@@ -1,0 +1,19 @@
+# Dependencias — se instalan con npm ci en el pipeline
+node_modules/
+
+# Output del build de Vite — se genera en el pipeline
+dist/
+
+# Archivos locales del editor
+.DS_Store
+.vscode/
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Variables de entorno locales (nunca subir secretos!)
+.env.local
+.env.*.local

@@ -1,0 +1,178 @@
+# ============================================================
+# WORKSHOP: GitHub Actions + GitHub Pages
+# MedellínJS — Pipeline CI/CD con Vite + React
+# ============================================================
+#
+# Este workflow implementa un pipeline CI/CD completo:
+#
+#   lint ──┐
+#           ├──► deploy ──► GitHub Pages 🌐
+#   test ──┘
+#
+# Los jobs "lint" y "test" corren en PARALELO.
+# El job "deploy" solo arranca si AMBOS pasan (needs: [lint, test]).
+# Si lint o test falla, el deploy no ocurre. Eso es un "gate" de calidad.
+# ============================================================
+
+name: CI/CD — Lint, Test & Deploy to GitHub Pages
+
+# ─────────────────────────────────────────────
+# TRIGGERS: ¿cuándo se ejecuta este workflow?
+# ─────────────────────────────────────────────
+on:
+  # 1. Automáticamente en cada push a la rama main
+  push:
+    branches:
+      - main
+
+  # 2. Manualmente desde la pestaña "Actions" en GitHub
+  #    (útil para re-desplegar sin hacer un commit)
+  workflow_dispatch:
+
+# ─────────────────────────────────────────────
+# PERMISOS
+# GitHub Actions necesita permiso explícito para
+# escribir en GitHub Pages y generar tokens OIDC.
+# ─────────────────────────────────────────────
+permissions:
+  contents: read   # Leer el código del repo (checkout)
+  pages: write     # Publicar en GitHub Pages
+  id-token: write  # Generar token de identidad (requerido por deploy-pages)
+
+# ─────────────────────────────────────────────
+# CONCURRENCIA
+# Si llegan dos pushes seguidos, cancela el deploy
+# anterior y solo ejecuta el más reciente.
+# ─────────────────────────────────────────────
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# ============================================================
+# JOBS
+# Cada job corre en su propia máquina virtual limpia.
+# Los jobs son independientes por defecto; usamos "needs"
+# para crear dependencias entre ellos.
+# ============================================================
+
+jobs:
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 1: LINT
+  # Verifica que el código sigue las reglas de estilo (ESLint).
+  # Corre en paralelo con el job "test".
+  # ──────────────────────────────────────────────────────────
+  lint:
+    name: 🔍 Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Descargar el código del repo en la VM
+      - name: 📥 Checkout del código
+        uses: actions/checkout@v4
+
+      # Paso 2: Instalar Node.js LTS
+      # "cache: npm" guarda node_modules entre runs para ir más rápido
+      - name: 🟢 Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      # Paso 3: Instalar dependencias de forma reproducible
+      # "npm ci" es como "npm install" pero más estricto:
+      #   - Siempre usa exactamente package-lock.json
+      #   - Falla si hay discrepancias (más seguro para CI)
+      - name: 📦 Instalar dependencias
+        run: npm ci
+
+      # Paso 4: Ejecutar ESLint
+      # Si encuentra errores, el job falla y el deploy no ocurre
+      - name: 🔍 Ejecutar ESLint
+        run: npm run lint
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 2: TEST
+  # Corre los tests unitarios con Vitest.
+  # Corre en paralelo con el job "lint".
+  # ──────────────────────────────────────────────────────────
+  test:
+    name: 🧪 Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout del código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: 📦 Instalar dependencias
+        run: npm ci
+
+      # Ejecutar Vitest en modo "run" (no watch)
+      # Si algún test falla, el job falla y el deploy no ocurre
+      - name: 🧪 Ejecutar tests
+        run: npm test
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 3: DEPLOY
+  # Compila la app y la publica en GitHub Pages.
+  #
+  # 🔑 "needs: [lint, test]" es la clave:
+  # Este job solo empieza cuando lint Y test terminan con éxito.
+  # Si cualquiera falla, este job se cancela automáticamente.
+  # ──────────────────────────────────────────────────────────
+  deploy:
+    name: 🚀 Deploy a GitHub Pages
+    runs-on: ubuntu-latest
+
+    # Dependencias: esperar a que lint y test pasen
+    needs: [lint, test]
+
+    # Environment conecta este job con el entorno "github-pages" de GitHub.
+    # Esto aparece en el tab "Environments" del repo y genera la URL del sitio.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: 📥 Checkout del código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: 📦 Instalar dependencias
+        run: npm ci
+
+      # Compilar la app para producción
+      # Vite genera los archivos estáticos en la carpeta ./dist
+      - name: 🏗️ Build de producción
+        run: npm run build
+
+      # Preparar GitHub Pages para recibir el deploy
+      # Esta acción oficial configura el entorno de Pages
+      - name: ⚙️ Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      # Empaquetar la carpeta dist como un "artefacto" de GitHub Actions.
+      # Un artefacto es un archivo adjunto al run del workflow que puede
+      # ser descargado o usado por otros jobs.
+      - name: 📤 Subir artefacto de Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Solo subimos la carpeta dist (el output del build)
+          path: ./dist
+
+      # Publicar el artefacto en GitHub Pages
+      # El output "page_url" tiene la URL final del sitio
+      - name: 🌐 Deploy a GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
