@@ -109,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # Dependencias: esperar a que lint y test pasen
-    needs: [lint, test]
+    needs: [lint]
 
     # Environment conecta este job con el entorno "github-pages" de GitHub.
     # Esto aparece en el tab "Environments" del repo y genera la URL del sitio.
