@@ -89,7 +89,7 @@ jobs:
       # Paso 4: Ejecutar ESLint
       # Si encuentra errores, el job falla y el deploy no ocurre
       - name: 🔍 Ejecutar ESLint
-        run: npm run lint2
+        run: npm run lint
 
       # Ejecutar Vitest en modo "run" (no watch)
       # Si algún test falla, el job falla y el deploy no ocurre
