@@ -28,7 +28,7 @@ GitHub Actions es un sistema de **automatización** integrado en GitHub. Permite
 ### Términos que usaremos hoy
 
 ```
-┌─────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────┐
 │  WORKFLOW (.github/workflows/deploy.yml)         │
 │  Archivo YAML que describe toda la automatización│
 │                                                  │
@@ -43,7 +43,7 @@ GitHub Actions es un sistema de **automatización** integrado en GitHub. Permite
 │           │  JOB: deploy  │  ← necesita los dos  │
 │           │   (otra VM)   │                      │
 │           └───────────────┘                      │
-└─────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────┘
 ```
 
 | Concepto | Qué es |

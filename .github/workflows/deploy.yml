@@ -89,29 +89,7 @@ jobs:
       # Paso 4: Ejecutar ESLint
       # Si encuentra errores, el job falla y el deploy no ocurre
       - name: 🔍 Ejecutar ESLint
-        run: npm run lint
-
-  # ──────────────────────────────────────────────────────────
-  # JOB 2: TEST
-  # Corre los tests unitarios con Vitest.
-  # Corre en paralelo con el job "lint".
-  # ──────────────────────────────────────────────────────────
-  test:
-    name: 🧪 Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 📥 Checkout del código
-        uses: actions/checkout@v4
-
-      - name: 🟢 Configurar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: npm
-
-      - name: 📦 Instalar dependencias
-        run: npm ci
+        run: npm run lint2
 
       # Ejecutar Vitest en modo "run" (no watch)
       # Si algún test falla, el job falla y el deploy no ocurre
